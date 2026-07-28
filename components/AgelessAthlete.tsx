@@ -100,9 +100,37 @@ const CREW_PREFIX = "crew:member:";
 
 /* ---------------- Helpers ---------------- */
 const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-function dayItems(dow) { return [...MORNING, ...PLAN[dow].blocks.flatMap((b) => b.items), ...EVENING]; }
-function pctFor(dow, done) {
-  const all = dayItems(dow);
+const parseKey = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+const daysBetween = (aKey, bKey) => Math.round((parseKey(bKey).getTime() - parseKey(aKey).getTime()) / 86400000);
+const addDays = (k, n) => { const d = parseKey(k); d.setDate(d.getDate() + n); return dateKey(d); };
+// First Monday on or after a date (the day the structured Mon–Sun program begins)
+const firstMondayOnOrAfter = (k) => { const day = parseKey(k).getDay(); return addDays(k, (1 - day + 7) % 7); };
+
+// Onboarding "warm-up" — light starter tasks shown from the start day until the first Monday
+const ONBOARDING = {
+  round: "GET STARTED",
+  type: "WARM-UP",
+  blocks: [
+    { title: "Get started", items: [
+      { id: "ob_weigh", label: "Log your starting weight" },
+      { id: "ob_walk", label: "Easy 10-minute walk" },
+      { id: "ob_feet", label: "Foot activation — toe yoga + short foot (2 min)" },
+      { id: "ob_breath", label: "5 slow breaths — set your intention" },
+      { id: "ob_plan", label: "Skim your 7-day plan (starts Monday)" },
+    ]},
+  ],
+};
+
+// Plan for a date: null before start, the onboarding warm-up before the first Monday,
+// then the normal weekday-anchored session (Mon=Round1 … Sun=Rest).
+function planForDate(dateK, startK, firstMonK) {
+  if (daysBetween(startK, dateK) < 0) return null;
+  if (daysBetween(firstMonK, dateK) < 0) return ONBOARDING;
+  return PLAN[parseKey(dateK).getDay()];
+}
+function dayItems(plan) { return plan ? [...MORNING, ...plan.blocks.flatMap((b) => b.items), ...EVENING] : []; }
+function pctForPlan(plan, done) {
+  const all = dayItems(plan);
   if (!all.length) return 0;
   return Math.round((all.filter((i) => done && done[i.id]).length / all.length) * 100);
 }
@@ -119,13 +147,16 @@ function splitsFor(checks) {
   const total = checks.length >= 2 ? checks[checks.length - 1].t - checks[0].t : null;
   return { byId, total };
 }
-function streakFrom(logs, today, todayPct) {
+// Streak of consecutive days (back from today) at ≥70%, using each date's plan (onboarding or weekday)
+function streakFrom(logs, today, startK, firstMonK, todayPct) {
   let s = 0;
   const d = new Date(today);
   if (todayPct >= 70) s++;
   d.setDate(d.getDate() - 1);
-  for (let i = 0; i < 365; i++) {
-    const p = pctFor(d.getDay(), logs[dateKey(d)]?.done);
+  for (let i = 0; i < 400; i++) {
+    const dk = dateKey(d);
+    if (daysBetween(startK, dk) < 0) break; // before they started
+    const p = pctForPlan(planForDate(dk, startK, firstMonK), logs[dk]?.done);
     if (p >= 70) { s++; d.setDate(d.getDate() - 1); } else break;
   }
   return s;
@@ -164,9 +195,13 @@ export default function AgelessAthlete() {
 
   const today = new Date();
   const tKey = dateKey(today);
-  const dow = today.getDay();
-  const plan = PLAN[dow];
   const profile = state.profile;
+  const startKey = profile?.startDate || tKey;
+  const firstMonKey = firstMondayOnOrAfter(startKey);
+  const isOnboarding = daysBetween(firstMonKey, tKey) < 0; // before the first Monday
+  const daysToWeek1 = daysBetween(tKey, firstMonKey);      // 0 once Week 1 begins
+  const weekNum = isOnboarding ? 0 : Math.floor(daysBetween(firstMonKey, tKey) / 7) + 1;
+  const plan = planForDate(tKey, startKey, firstMonKey) || PLAN[today.getDay()];
   const todayLog = state.logs[tKey] || {};
   const todayDone = todayLog.done || {};
   const todayChecks = todayLog.checks || {};
@@ -194,6 +229,11 @@ export default function AgelessAthlete() {
           if (!parsed.profile && parsed.startWeight != null) {
             parsed.profile = { id: newId(), name: "", startWeight: parsed.startWeight, goalWeight: parsed.startWeight - 20, published: false };
           }
+          // backfill program start date for profiles created before this feature
+          if (parsed.profile && !parsed.profile.startDate) {
+            const dates = [...(parsed.weights || []).map((w) => w.d), ...Object.keys(parsed.logs || {})].filter(Boolean).sort();
+            parsed.profile.startDate = dates[0] || tKey;
+          }
           setState({ ...EMPTY, ...parsed });
         }
       } catch (e) { /* first run */ }
@@ -208,16 +248,20 @@ export default function AgelessAthlete() {
   }, []);
 
   /* ----- derived ----- */
-  const pct = pctFor(dow, todayDone);
-  const streak = useMemo(() => streakFrom(state.logs, today, pct), [state.logs, pct]);
+  const pct = pctForPlan(plan, todayDone);
+  const streak = useMemo(() => streakFrom(state.logs, today, startKey, firstMonKey, pct), [state.logs, pct, startKey, firstMonKey]);
   const week = useMemo(() => {
-    const start = new Date(today); start.setDate(start.getDate() - dow);
+    // Mon–Sun of the current program week; during onboarding, preview Week 1
+    const weekMonday = isOnboarding ? firstMonKey : addDays(firstMonKey, (weekNum - 1) * 7);
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(start); d.setDate(start.getDate() + i);
-      const k = dateKey(d);
-      return { dow: i, key: k, isToday: k === tKey, isFuture: d > today, pct: pctFor(i, state.logs[k]?.done) };
+      const k = addDays(weekMonday, i);
+      const d = parseKey(k);
+      return {
+        dow: d.getDay(), key: k, isToday: k === tKey, isFuture: d > today,
+        pct: pctForPlan(planForDate(k, startKey, firstMonKey), state.logs[k]?.done),
+      };
     });
-  }, [state.logs, tKey]);
+  }, [state.logs, tKey, startKey, firstMonKey, weekNum, isOnboarding]);
 
   const startW = profile?.startWeight ?? null;
   const goalW = profile?.goalWeight ?? null;
@@ -262,7 +306,7 @@ export default function AgelessAthlete() {
     const nextLogs = { ...state.logs, [tKey]: { done, checks: dayChecks } };
     const next = { ...state, logs: nextLogs, records: recs };
     persist(next);
-    publishCrew(profile, latest, streakFrom(nextLogs, today, pctFor(dow, done)), lost);
+    publishCrew(profile, latest, streakFrom(nextLogs, today, startKey, firstMonKey, pctForPlan(plan, done)), lost);
   };
 
   const logWeight = () => {
@@ -279,7 +323,7 @@ export default function AgelessAthlete() {
   const joinFromSplash = () => {
     const s = parseFloat(fStart), g = parseFloat(fGoal);
     if (!fName.trim() || !s || s <= 0 || !g || g <= 0 || g >= s) return;
-    const prof = { id: newId(), name: fName.trim(), startWeight: s, goalWeight: g, published: joinCrew };
+    const prof = { id: newId(), name: fName.trim(), startWeight: s, goalWeight: g, published: joinCrew, startDate: tKey };
     const weights = [{ d: tKey, w: s }];
     const next = { ...EMPTY, profile: prof, weights, logs: {}, records: {} };
     persist(next);
@@ -656,19 +700,27 @@ export default function AgelessAthlete() {
               <span style={{ fontFamily: "var(--display)", color: "#FFFFFF", fontSize: 13, letterSpacing: "0.05em" }}>SHARE ↗</span>
             </button>
           </div>
-          <div className="mt-4 mb-1"><span style={{ ...kicker, background: "var(--hl)", padding: "3px 8px" }}>{plan.round} · {plan.type}</span></div>
-          <h1 style={{ fontFamily: "var(--display)", fontSize: 58, lineHeight: 0.95, margin: "6px 0 0", transform: "skewX(-6deg)", transformOrigin: "left" }}>{DAY_NAMES[dow]}</h1>
+          <div className="mt-4 mb-1"><span style={{ ...kicker, background: "var(--hl)", padding: "3px 8px" }}>
+            {isOnboarding ? `WARM-UP · ${daysToWeek1 === 0 ? "WEEK 1 TODAY" : daysToWeek1 + " DAY" + (daysToWeek1 === 1 ? "" : "S") + " TO WEEK 1"}` : `${plan.round} · ${plan.type}`}
+          </span></div>
+          <h1 style={{ fontFamily: "var(--display)", fontSize: isOnboarding ? 48 : 58, lineHeight: 0.95, margin: "6px 0 0", transform: "skewX(-6deg)", transformOrigin: "left" }}>
+            {isOnboarding ? "GET STARTED" : DAY_NAMES[today.getDay()]}
+          </h1>
+          <div style={{ ...kicker, color: "var(--muted)", marginTop: 4 }}>
+            {DAY_NAMES[today.getDay()]} · {today.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}
+            {isOnboarding && " · YOUR MON–SUN PROGRAM BEGINS MONDAY"}
+          </div>
           <div style={{ height: 4, background: "var(--ink)", margin: "12px 0 0" }} />
           <div style={{ height: 2, background: "var(--red)", margin: "3px 0 18px" }} />
         </header>
 
-        {/* Week box score */}
+        {/* Week box score — Mon–Sun */}
         <div className="mb-4 depth" style={{ border: "2px solid var(--ink)", background: "var(--card)" }}>
-          <div className="px-2 py-1" style={{ background: "var(--ink)" }}><span style={{ ...kicker, color: "#FFFFFF" }}>THIS WEEK</span></div>
+          <div className="px-2 py-1" style={{ background: "var(--ink)" }}><span style={{ ...kicker, color: "#FFFFFF" }}>{isOnboarding ? "WEEK 1 · STARTS MONDAY" : `WEEK ${weekNum}`}</span></div>
           <div className="flex">
             {week.map((d, i) => (
-              <div key={d.key} className="flex-1 text-center py-2" style={{ borderLeft: i > 0 ? "1px solid var(--rule)" : "none", background: d.isToday ? "var(--hl)" : d.pct >= 70 ? "#FBEAEA" : "var(--card)" }}>
-                <div style={{ ...kicker, fontSize: 10 }}>{DAY_ABBR[d.dow]}</div>
+              <div key={d.key} className="flex-1 text-center py-2" style={{ borderLeft: i > 0 ? "1px solid var(--rule)" : "none", background: d.isToday ? "var(--hl)" : (!d.isFuture && d.pct >= 70) ? "#FBEAEA" : "var(--card)" }}>
+                <div style={{ ...kicker, fontSize: 9.5 }}>{DAY_ABBR[d.dow]}</div>
                 <div style={{ fontFamily: "var(--display)", fontSize: 15, marginTop: 2, color: d.isFuture ? "var(--muted)" : d.pct >= 70 ? "var(--red)" : "var(--ink)" }}>{d.isFuture ? "–" : `${d.pct}`}</div>
               </div>
             ))}
@@ -716,7 +768,7 @@ export default function AgelessAthlete() {
 
         {/* Checklists */}
         <div className="chrome px-4 mb-4">
-          <div className="pt-4 pb-1"><span style={{ ...kicker, color: "var(--red)" }}>TODAY'S CARD</span></div>
+          <div className="pt-4 pb-1"><span style={{ ...kicker, color: "var(--red)" }}>{isOnboarding ? "ONBOARDING" : "TODAY'S CARD"}</span></div>
           {todaySections.map((s) => <Section key={s.sid} sid={s.sid} eyebrow={s.title} items={s.items} defaultOpen={s.defaultOpen} />)}
         </div>
 
