@@ -106,7 +106,7 @@ const addDays = (k, n) => { const d = parseKey(k); d.setDate(d.getDate() + n); r
 // First Monday on or after a date (the day the structured Mon–Sun program begins)
 const firstMondayOnOrAfter = (k) => { const day = parseKey(k).getDay(); return addDays(k, (1 - day + 7) % 7); };
 
-// Onboarding "warm-up" — light starter tasks shown from the start day until the first Monday
+// Onboarding "warm-up" - light starter tasks shown from the start day until the first Monday
 const ONBOARDING = {
   round: "GET STARTED",
   type: "WARM-UP",
@@ -114,23 +114,135 @@ const ONBOARDING = {
     { title: "Get started", items: [
       { id: "ob_weigh", label: "Log your starting weight" },
       { id: "ob_walk", label: "Easy 10-minute walk" },
-      { id: "ob_feet", label: "Foot activation — toe yoga + short foot (2 min)" },
-      { id: "ob_breath", label: "5 slow breaths — set your intention" },
+      { id: "ob_feet", label: "Foot activation, toe yoga plus short foot (2 min)" },
+      { id: "ob_breath", label: "5 slow breaths, set your intention" },
       { id: "ob_plan", label: "Skim your 7-day plan (starts Monday)" },
     ]},
   ],
 };
 
+// ---- Trail Ready: an alternate weekday focus (two 15-minute sessions a day) ----
+// Rename this label in one place to change it everywhere it shows in the UI.
+const TRAIL_LABEL = "Trail Ready";
+// Each block carries an id so the same sessions can be offered as one-off "wild cards".
+const TRAIL_PLAN = {
+  1: { round: "CLIMB + FOUNDATION", type: "2 × 15 MIN", blocks: [
+    { id: "tr-mon-a", title: "Session A: Step-Up Endurance · 15 min · Green", items: [
+      { id: "tr_mon_a1", label: "2 min easy march, ankle circles, low step-ups" },
+      { id: "tr_mon_a2", label: "10 min continuous alternating step-ups (Green, can speak a sentence)" },
+      { id: "tr_mon_a3", label: "3 min slower stepping and walking recovery" },
+    ]},
+    { id: "tr-mon-b", title: "Session B: Pull, Push, and Hinge · 15 min · Yellow", items: [
+      { id: "tr_mon_b1", label: "3 rounds: 2 to 5 pull-ups or slow negatives" },
+      { id: "tr_mon_b2", label: "8 to 12 push-ups (elevate hands if needed)" },
+      { id: "tr_mon_b3", label: "10 kettlebell deadlifts, rest to Green between rounds" },
+    ]},
+  ]},
+  2: { round: "AEROBIC BASE", type: "2 × 15 MIN", blocks: [
+    { id: "tr-tue-a", title: "Session A: Mountain-Bike Base · 15 min · Green", items: [
+      { id: "tr_tue_a1", label: "3 min easy riding" },
+      { id: "tr_tue_a2", label: "9 min steady conversational riding" },
+      { id: "tr_tue_a3", label: "2 min moderately brisk (Yellow is ok), 1 min easy cooldown" },
+    ]},
+    { id: "tr-tue-b", title: "Session B: Primal Yard Flow · 15 min · Yellow", items: [
+      { id: "tr_tue_b1", label: "Bear crawl forward and back, 30 sec" },
+      { id: "tr_tue_b2", label: "Supported deep-squat movement, 30 sec" },
+      { id: "tr_tue_b3", label: "Crab walk, 30 sec" },
+      { id: "tr_tue_b4", label: "Lateral bear crawl, 30 sec" },
+      { id: "tr_tue_b5", label: "Ape-style side steps, 30 sec, then repeat the circuit once" },
+      { id: "tr_tue_b6", label: "5 min hip circles, ankle rocks, calf stretch, walk" },
+    ]},
+  ]},
+  3: { round: "BOXING ENGINE", type: "2 × 15 MIN", blocks: [
+    { id: "tr-wed-a", title: "Session A: Heavy-Bag Conditioning · 15 min · Yellow", items: [
+      { id: "tr_wed_a1", label: "2 min circle the bag and shadowbox" },
+      { id: "tr_wed_a2", label: "6 rounds: 60 sec punching, 30 sec walking (60 to 70% power)" },
+      { id: "tr_wed_a3", label: "4 min easy combinations and cooldown" },
+    ]},
+    { id: "tr-wed-b", title: "Session B: Bench, Dips, and Step-Downs · 15 min · Yellow", items: [
+      { id: "tr_wed_b1", label: "3 rounds: 8 bench presses (a load you could do for 12)" },
+      { id: "tr_wed_b2", label: "5 to 8 dips (foot-assisted ok)" },
+      { id: "tr_wed_b3", label: "6 slow step-downs per leg, brief recovery" },
+    ]},
+  ]},
+  4: { round: "PLAY + HIKING LEGS", type: "2 × 15 MIN", blocks: [
+    { id: "tr-thu-a", title: "Session A: BMX and Basketball · 15 min · Green", items: [
+      { id: "tr_thu_a1", label: "7 min easy BMX riding" },
+      { id: "tr_thu_a2", label: "8 min dribble, shoot, and retrieve, keep it fluid" },
+    ]},
+    { id: "tr-thu-b", title: "Session B: Hiking-Leg Circuit · 15 min · Yellow", items: [
+      { id: "tr_thu_b1", label: "3 rounds: 8 step-ups per leg" },
+      { id: "tr_thu_b2", label: "6 reverse lunges per leg (hold support if needed)" },
+      { id: "tr_thu_b3", label: "15 calf raises, controlled lowering" },
+      { id: "tr_thu_b4", label: "20 to 30 sec wall sit, rest as needed" },
+    ]},
+  ]},
+  5: { round: "FOOT SPEED + CARRY", type: "2 × 15 MIN", blocks: [
+    { id: "tr-fri-a", title: "Session A: Low-Impact Jump Rope · 15 min · Yellow", items: [
+      { id: "tr_fri_a1", label: "3 min march, ankle movement, calf warm-up" },
+      { id: "tr_fri_a2", label: "10 rounds: 20 sec rope, 40 sec marching (jumps small and quiet)" },
+      { id: "tr_fri_a3", label: "2 min easy walking" },
+    ]},
+    { id: "tr-fri-b", title: "Session B: Pull, Push, and Carry · 15 min · Yellow", items: [
+      { id: "tr_fri_b1", label: "3 rounds: 2 to 5 pull-ups or assisted reps" },
+      { id: "tr_fri_b2", label: "8 to 12 push-ups" },
+      { id: "tr_fri_b3", label: "30 sec suitcase carry right, 30 sec left, brief recovery" },
+    ]},
+  ]},
+  6: { round: "TRAIL REHEARSAL", type: "2 × 15 MIN", blocks: [
+    { id: "tr-sat-a", title: "Session A: Loaded Hike Simulator · 15 min · Yellow", items: [
+      { id: "tr_sat_a1", label: "3 min easy step-ups" },
+      { id: "tr_sat_a2", label: "8 min steady step-ups with a light pack (start 5 to 8 lbs)" },
+      { id: "tr_sat_a3", label: "2 min moderately brisk step-ups, 2 min easy cooldown" },
+    ]},
+    { id: "tr-sat-b", title: "Session B: Bag and Primal Flow · 15 min · Yellow", items: [
+      { id: "tr_sat_b1", label: "5 rounds: 60 sec relaxed bag combos" },
+      { id: "tr_sat_b2", label: "30 sec bear crawl or lateral crawl, 30 sec walking recovery" },
+      { id: "tr_sat_b3", label: "5 min calves, hip flexors, hamstrings, slow breathing" },
+    ]},
+  ]},
+  0: { round: "RESTORE", type: "2 × 15 MIN", blocks: [
+    { id: "tr-sun-a", title: "Session A: Recovery Ride · 15 min · Recovery", items: [
+      { id: "tr_sun_a1", label: "15 min easy ride, nasal breathing stays comfortable" },
+    ]},
+    { id: "tr-sun-b", title: "Session B: Mobility and Balance · 15 min · Recovery", items: [
+      { id: "tr_sun_b1", label: "Ankle circles and knee-to-wall rocks, 2 min" },
+      { id: "tr_sun_b2", label: "Calf stretch, 1 min per side" },
+      { id: "tr_sun_b3", label: "Hip-flexor stretch, 1 min per side" },
+      { id: "tr_sun_b4", label: "Hamstring stretch, 1 min per side" },
+      { id: "tr_sun_b5", label: "Figure-four stretch, 1 min per side" },
+      { id: "tr_sun_b6", label: "Supported deep-squat, 2 min" },
+      { id: "tr_sun_b7", label: "Single-leg balance, 45 sec per side, slow breathing" },
+    ]},
+  ]},
+};
+// Flat pool of every Trail session, for the wild-card picker
+const DAY_LABEL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WILD_POOL = [1, 2, 3, 4, 5, 6, 0].flatMap((dow) => TRAIL_PLAN[dow].blocks.map((b) => ({ ...b, day: DAY_LABEL[dow] })));
+const planTableFor = (focus) => (focus === "trail" ? TRAIL_PLAN : PLAN);
+
 // Plan for a date: null before start, the onboarding warm-up before the first Monday,
-// then the normal weekday-anchored session (Mon=Round1 … Sun=Rest).
-function planForDate(dateK, startK, firstMonK) {
+// then the weekday session from the chosen focus (Foundation or Trail Ready).
+function planForDate(dateK, startK, firstMonK, focus) {
   if (daysBetween(startK, dateK) < 0) return null;
   if (daysBetween(firstMonK, dateK) < 0) return ONBOARDING;
-  return PLAN[parseKey(dateK).getDay()];
+  return planTableFor(focus)[parseKey(dateK).getDay()];
 }
 function dayItems(plan) { return plan ? [...MORNING, ...plan.blocks.flatMap((b) => b.items), ...EVENING] : []; }
-function pctForPlan(plan, done) {
-  const all = dayItems(plan);
+// The item set a person actually sees, after hiding defaults and adding their own
+function effectiveItems(plan, hidden = [], custom = []) {
+  if (!plan) return [];
+  const keep = (arr) => arr.filter((i) => !hidden.includes(i.id));
+  const inSlot = (slot) => custom.filter((c) => c.slot === slot);
+  return [
+    ...keep(MORNING), ...inSlot("morning"),
+    ...keep(plan.blocks.flatMap((b) => b.items)),
+    ...inSlot("workout"),
+    ...keep(EVENING), ...inSlot("evening"),
+  ];
+}
+function pctForPlan(plan, done, hidden = [], custom = []) {
+  const all = effectiveItems(plan, hidden, custom);
   if (!all.length) return 0;
   return Math.round((all.filter((i) => done && done[i.id]).length / all.length) * 100);
 }
@@ -147,16 +259,16 @@ function splitsFor(checks) {
   const total = checks.length >= 2 ? checks[checks.length - 1].t - checks[0].t : null;
   return { byId, total };
 }
-// Streak of consecutive days (back from today) at ≥70%, using each date's plan (onboarding or weekday)
-function streakFrom(logs, today, startK, firstMonK, todayPct) {
+// Streak of consecutive days (back from today) at >= 70%, honoring the person's customizations
+function streakFrom(logs, today, startK, firstMonK, focus, todayPct, hidden = [], custom = []) {
   let s = 0;
   const d = new Date(today);
   if (todayPct >= 70) s++;
   d.setDate(d.getDate() - 1);
   for (let i = 0; i < 400; i++) {
     const dk = dateKey(d);
-    if (daysBetween(startK, dk) < 0) break; // before they started
-    const p = pctForPlan(planForDate(dk, startK, firstMonK), logs[dk]?.done);
+    if (daysBetween(startK, dk) < 0) break;
+    const p = pctForPlan(planForDate(dk, startK, firstMonK, focus), logs[dk]?.done, hidden, custom);
     if (p >= 70) { s++; d.setDate(d.getDate() - 1); } else break;
   }
   return s;
@@ -192,6 +304,11 @@ export default function AgelessAthlete() {
   const [sStart, setSStart] = useState("");
   const [sGoal, setSGoal] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
+  // customize
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
+  const [newSlot, setNewSlot] = useState("workout");
+  const [showWild, setShowWild] = useState(false);
 
   const today = new Date();
   const tKey = dateKey(today);
@@ -201,11 +318,17 @@ export default function AgelessAthlete() {
   const isOnboarding = daysBetween(firstMonKey, tKey) < 0; // before the first Monday
   const daysToWeek1 = daysBetween(tKey, firstMonKey);      // 0 once Week 1 begins
   const weekNum = isOnboarding ? 0 : Math.floor(daysBetween(firstMonKey, tKey) / 7) + 1;
-  const plan = planForDate(tKey, startKey, firstMonKey) || PLAN[today.getDay()];
+  const focus = profile?.focus || "foundation";
+  const plan = planForDate(tKey, startKey, firstMonKey, focus) || planTableFor(focus)[today.getDay()];
   const todayLog = state.logs[tKey] || {};
   const todayDone = todayLog.done || {};
   const todayChecks = todayLog.checks || {};
+  const todayWild = todayLog.wild || [];
   const records = state.records || {};
+  // per-user customization (defaults are Shawn's baseline)
+  const hidden = profile?.hidden || [];
+  const custom = profile?.custom || [];
+  const intensity = profile?.intensity || "standard";
 
   const loadCrew = useCallback(async () => {
     try {
@@ -248,20 +371,20 @@ export default function AgelessAthlete() {
   }, []);
 
   /* ----- derived ----- */
-  const pct = pctForPlan(plan, todayDone);
-  const streak = useMemo(() => streakFrom(state.logs, today, startKey, firstMonKey, pct), [state.logs, pct, startKey, firstMonKey]);
+  const pct = pctForPlan(plan, todayDone, hidden, custom);
+  const streak = useMemo(() => streakFrom(state.logs, today, startKey, firstMonKey, focus, pct, hidden, custom), [state.logs, pct, startKey, firstMonKey, focus, hidden, custom]);
   const week = useMemo(() => {
-    // Mon–Sun of the current program week; during onboarding, preview Week 1
+    // Mon-Sun of the current program week; during onboarding, preview Week 1
     const weekMonday = isOnboarding ? firstMonKey : addDays(firstMonKey, (weekNum - 1) * 7);
     return Array.from({ length: 7 }, (_, i) => {
       const k = addDays(weekMonday, i);
       const d = parseKey(k);
       return {
         dow: d.getDay(), key: k, isToday: k === tKey, isFuture: d > today,
-        pct: pctForPlan(planForDate(k, startKey, firstMonKey), state.logs[k]?.done),
+        pct: pctForPlan(planForDate(k, startKey, firstMonKey, focus), state.logs[k]?.done, hidden, custom),
       };
     });
-  }, [state.logs, tKey, startKey, firstMonKey, weekNum, isOnboarding]);
+  }, [state.logs, tKey, startKey, firstMonKey, weekNum, isOnboarding, focus, hidden, custom]);
 
   const startW = profile?.startWeight ?? null;
   const goalW = profile?.goalWeight ?? null;
@@ -303,10 +426,10 @@ export default function AgelessAthlete() {
       const prev = recs[title] || { best: null, history: [] };
       recs[title] = { best: prev.best == null ? total : Math.min(prev.best, total), history: [...prev.history, { ms: total, date: tKey }].slice(-30) };
     }
-    const nextLogs = { ...state.logs, [tKey]: { done, checks: dayChecks } };
+    const nextLogs = { ...state.logs, [tKey]: { ...todayLog, done, checks: dayChecks } };
     const next = { ...state, logs: nextLogs, records: recs };
     persist(next);
-    publishCrew(profile, latest, streakFrom(nextLogs, today, startKey, firstMonKey, pctForPlan(plan, done)), lost);
+    publishCrew(profile, latest, streakFrom(nextLogs, today, startKey, firstMonKey, focus, pctForPlan(plan, done, hidden, custom), hidden, custom), lost);
   };
 
   const logWeight = () => {
@@ -374,6 +497,29 @@ export default function AgelessAthlete() {
     setFName(""); setFStart(""); setFGoal(""); setJoinCrew(true);
     loadCrew();
   };
+
+  /* ----- customize ----- */
+  const updateProfile = (patch) => { if (profile) persist({ ...state, profile: { ...profile, ...patch } }); };
+  const toggleHidden = (id) => updateProfile({ hidden: hidden.includes(id) ? hidden.filter((x) => x !== id) : [...hidden, id] });
+  const addCustom = () => {
+    const label = newLabel.trim();
+    if (!label) return;
+    updateProfile({ custom: [...custom, { id: "cst_" + Math.random().toString(36).slice(2, 8), slot: newSlot, label }] });
+    setNewLabel("");
+  };
+  const removeCustom = (id) => updateProfile({ custom: custom.filter((c) => c.id !== id) });
+  const setIntensity = (v) => updateProfile({ intensity: v });
+  const setFocus = (v) => updateProfile({ focus: v });
+  const addWild = (id) => {
+    const w = todayWild.includes(id) ? todayWild : [...todayWild, id];
+    persist({ ...state, logs: { ...state.logs, [tKey]: { ...todayLog, wild: w } } });
+  };
+  const removeWild = (id) => persist({ ...state, logs: { ...state.logs, [tKey]: { ...todayLog, wild: todayWild.filter((x) => x !== id) } } });
+  const intensityCue = intensity === "easy"
+    ? "Dialed back — longer rests, drop a round if you need to, keep it smooth."
+    : intensity === "hard"
+    ? "Turned up — add a round, slow the lowering, shorten your rests."
+    : "";
 
   /* ----- share ----- */
   const shareText = profile
@@ -624,10 +770,21 @@ export default function AgelessAthlete() {
   }
 
   /* ================= MAIN APP ================= */
+  const keep = (arr) => arr.filter((i) => !hidden.includes(i.id));
+  const inSlot = (slot) => custom.filter((c) => c.slot === slot).map((c) => ({ id: c.id, label: c.label }));
+  const morningItems = [...keep(MORNING), ...inSlot("morning")];
+  const eveningItems = [...keep(EVENING), ...inSlot("evening")];
+  const extraItems = inSlot("workout");
+  const wildSections = todayWild
+    .map((id) => WILD_POOL.find((s) => s.id === id))
+    .filter(Boolean)
+    .map((s) => ({ sid: "wild_" + s.id, title: "Wild card: " + s.title, items: s.items, defaultOpen: true, wild: true }));
   const todaySections = [
-    { sid: "morning", title: "Morning — 5 min", items: MORNING, defaultOpen: true },
-    ...plan.blocks.map((b, i) => ({ sid: "t" + i, title: b.title, items: b.items, defaultOpen: i === 0 })),
-    { sid: "evening", title: "Evening — recovery", items: EVENING, defaultOpen: false },
+    { sid: "morning", title: "Morning — 5 min", items: morningItems, defaultOpen: true },
+    ...plan.blocks.map((b, i) => ({ sid: "t" + i, title: b.title, items: keep(b.items), defaultOpen: i === 0 })),
+    ...(extraItems.length ? [{ sid: "extras", title: "My extras", items: extraItems, defaultOpen: true }] : []),
+    ...wildSections,
+    { sid: "evening", title: "Evening — recovery", items: eveningItems, defaultOpen: false },
   ];
 
   const Section = ({ sid, eyebrow, items, defaultOpen }) => {
@@ -768,7 +925,18 @@ export default function AgelessAthlete() {
 
         {/* Checklists */}
         <div className="chrome px-4 mb-4">
-          <div className="pt-4 pb-1"><span style={{ ...kicker, color: "var(--red)" }}>{isOnboarding ? "ONBOARDING" : "TODAY'S CARD"}</span></div>
+          <div className="pt-4 pb-1 flex items-center justify-between">
+            <span style={{ ...kicker, color: "var(--red)" }}>{isOnboarding ? "ONBOARDING" : "TODAY'S CARD"}</span>
+            <span className="flex items-center gap-3">
+              <button onClick={() => setShowWild(true)} className="btn3d" style={{ fontFamily: "var(--sf)", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.1em", color: "var(--red)", background: "none", border: "none", cursor: "pointer" }}>＋ WILD CARD</button>
+              <button onClick={() => setShowCustomize(true)} className="btn3d" style={{ fontFamily: "var(--sf)", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.1em", color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}>CUSTOMIZE ⚙</button>
+            </span>
+          </div>
+          {intensityCue && (
+            <div style={{ ...mono, color: "var(--navy)", fontWeight: 700, background: "#EEF1F6", border: "1px solid #D5DCE6", borderRadius: 8, padding: "7px 10px", margin: "2px 0 4px", lineHeight: 1.4 }}>
+              {intensity === "hard" ? "▲ " : "▼ "}{intensityCue}
+            </div>
+          )}
           {todaySections.map((s) => <Section key={s.sid} sid={s.sid} eyebrow={s.title} items={s.items} defaultOpen={s.defaultOpen} />)}
         </div>
 
@@ -956,6 +1124,10 @@ export default function AgelessAthlete() {
               SAVE CHANGES
             </button>
 
+            <button onClick={() => { setShowSettings(false); setShowCustomize(true); }} className="btn3d w-full px-4 py-2.5 mt-2" style={{ ...ghostBtn, fontFamily: "var(--sf)", fontWeight: 700, fontSize: 14 }}>
+              Customize plan &amp; supplements →
+            </button>
+
             {/* danger zone */}
             <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--rule)" }}>
               <span style={{ fontFamily: "var(--sf)", fontWeight: 700, fontSize: 11, letterSpacing: "0.12em", color: "var(--muted)" }}>START OVER</span>
@@ -979,6 +1151,142 @@ export default function AgelessAthlete() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Customize overlay ---------- */}
+      {showCustomize && (
+        <div onClick={() => setShowCustomize(false)} style={{ position: "fixed", inset: 0, background: "rgba(17,17,17,0.66)", display: "grid", placeItems: "center", padding: 20, zIndex: 50 }}>
+          <div onClick={(e) => e.stopPropagation()} className="chrome" style={{ width: "100%", maxWidth: 400, padding: 18, maxHeight: "88vh", overflowY: "auto" }}>
+            <div className="flex items-center justify-between" style={{ borderBottom: "2px solid var(--ink)", paddingBottom: 10, marginBottom: 12 }}>
+              <span style={{ fontFamily: "var(--display)", fontSize: 24, transform: "skewX(-6deg)", display: "inline-block" }}>CUSTOMIZE</span>
+              <button onClick={() => setShowCustomize(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, color: "var(--muted)" }}>✕</button>
+            </div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)", margin: "0 0 14px", lineHeight: 1.45 }}>
+              The defaults are what works for me. Turn things off, add your own, or change the effort so it fits you.
+            </p>
+
+            {/* Focus / program */}
+            <span style={{ fontFamily: "var(--sf)", fontWeight: 700, fontSize: 11, letterSpacing: "0.12em", color: "var(--muted)" }}>YOUR FOCUS</span>
+            <div className="flex gap-2 mt-2 mb-1">
+              {[{ v: "foundation", lbl: "Daily Foundation" }, { v: "trail", lbl: TRAIL_LABEL }].map(({ v, lbl }) => {
+                const on = focus === v;
+                return (
+                  <button key={v} onClick={() => setFocus(v)} className="btn3d flex-1 px-2 py-2.5" style={{
+                    fontFamily: "var(--sf)", fontWeight: 700, fontSize: 13, cursor: "pointer", borderRadius: 9,
+                    color: on ? "#FFFFFF" : "var(--ink)",
+                    background: on ? redGrad : "linear-gradient(180deg,#FFFFFF,#F0EFEC)",
+                    border: on ? "none" : "1.5px solid var(--rule)",
+                    boxShadow: on ? "0 2px 0 rgba(120,4,4,0.4)" : "0 1px 2px rgba(17,17,17,0.06)",
+                  }}>{lbl}</button>
+                );
+              })}
+            </div>
+            <p style={{ ...mono, color: "var(--muted)", margin: "0 0 14px", fontSize: 10.5, lineHeight: 1.4 }}>
+              {focus === "trail" ? "Two 15-minute trail-conditioning sessions a day." : "Strength, mobility, and recovery. Your weight, streak, and logs stay put either way."}
+            </p>
+
+            {/* Intensity */}
+            <span style={{ fontFamily: "var(--sf)", fontWeight: 700, fontSize: 11, letterSpacing: "0.12em", color: "var(--muted)" }}>WORKOUT EFFORT</span>
+            <div className="flex gap-2 mt-2 mb-4">
+              {[["easy", "Dial back"], ["standard", "Standard"], ["hard", "Turn up"]].map(([v, lbl]) => {
+                const on = intensity === v;
+                return (
+                  <button key={v} onClick={() => setIntensity(v)} className="btn3d flex-1 px-2 py-2.5" style={{
+                    fontFamily: "var(--sf)", fontWeight: 700, fontSize: 13, cursor: "pointer", borderRadius: 9,
+                    color: on ? "#FFFFFF" : "var(--ink)",
+                    background: on ? redGrad : "linear-gradient(180deg,#FFFFFF,#F0EFEC)",
+                    border: on ? "none" : "1.5px solid var(--rule)",
+                    boxShadow: on ? "0 2px 0 rgba(120,4,4,0.4)" : "0 1px 2px rgba(17,17,17,0.06)",
+                  }}>{lbl}</button>
+                );
+              })}
+            </div>
+
+            {/* Supplement / routine toggles */}
+            <span style={{ fontFamily: "var(--sf)", fontWeight: 700, fontSize: 11, letterSpacing: "0.12em", color: "var(--muted)" }}>SUPPLEMENTS &amp; ROUTINE</span>
+            <p style={{ ...mono, color: "var(--muted)", margin: "4px 0 8px", fontSize: 10.5 }}>Toggle off anything you don't take or do.</p>
+            {[{ g: "Morning", arr: MORNING }, { g: "Evening", arr: EVENING }].map(({ g, arr }) => (
+              <div key={g} className="mb-2">
+                <div style={{ ...kicker, fontSize: 10, color: "var(--ink)", margin: "6px 0 4px" }}>{g.toUpperCase()}</div>
+                {arr.map((it) => {
+                  const on = !hidden.includes(it.id);
+                  return (
+                    <button key={it.id} onClick={() => toggleHidden(it.id)} className="w-full flex items-center gap-2.5 text-left" style={{ background: "none", border: "none", cursor: "pointer", padding: "5px 0" }}>
+                      <span style={{ width: 38, height: 22, borderRadius: 11, flexShrink: 0, background: on ? "var(--red)" : "#CFCFCB", position: "relative", transition: "background 140ms ease" }}>
+                        <span style={{ position: "absolute", top: 2, left: on ? 18 : 2, width: 18, height: 18, borderRadius: 9, background: "#FFFFFF", boxShadow: "0 1px 2px rgba(0,0,0,0.3)", transition: "left 140ms ease" }} />
+                      </span>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: on ? "var(--ink)" : "var(--muted)", textDecoration: on ? "none" : "line-through" }}>{it.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+
+            {/* Add your own */}
+            <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--rule)" }}>
+              <span style={{ fontFamily: "var(--sf)", fontWeight: 700, fontSize: 11, letterSpacing: "0.12em", color: "var(--muted)" }}>ADD YOUR OWN</span>
+              <div className="flex gap-1.5 mt-2 mb-2">
+                {[["morning", "Morning"], ["workout", "Workout"], ["evening", "Evening"]].map(([v, lbl]) => {
+                  const on = newSlot === v;
+                  return (
+                    <button key={v} onClick={() => setNewSlot(v)} className="flex-1 py-1.5" style={{ fontFamily: "var(--sf)", fontWeight: 700, fontSize: 11.5, cursor: "pointer", borderRadius: 7, color: on ? "#FFFFFF" : "var(--muted)", background: on ? "var(--ink)" : "#F0EFEC", border: "none" }}>{lbl}</button>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2">
+                <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addCustom()} placeholder="e.g. Jump rope — 5 min" className="flex-1 px-3 py-2.5" style={{ ...inputStyle, fontSize: 14 }} />
+                <button onClick={addCustom} className="btn3d px-4" style={{ ...redBtn, fontSize: 14 }}>ADD</button>
+              </div>
+              {custom.length > 0 && (
+                <div className="mt-3">
+                  {custom.map((c) => (
+                    <div key={c.id} className="flex items-center gap-2 py-1.5" style={{ borderTop: "1px solid rgba(17,17,17,0.06)" }}>
+                      <span style={{ ...mono, fontSize: 9.5, color: "#FFFFFF", background: "var(--muted)", padding: "1px 5px", borderRadius: 3, textTransform: "uppercase", flexShrink: 0 }}>{c.slot}</span>
+                      <span className="flex-1" style={{ fontSize: 13.5, fontWeight: 600 }}>{c.label}</span>
+                      <button onClick={() => removeCustom(c.id)} aria-label="Remove" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 18, lineHeight: 1 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button onClick={() => setShowCustomize(false)} className="btn3d w-full px-4 py-3 mt-5" style={{ ...redBtn, fontSize: 16 }}>DONE</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Wild card overlay ---------- */}
+      {showWild && (
+        <div onClick={() => setShowWild(false)} style={{ position: "fixed", inset: 0, background: "rgba(17,17,17,0.66)", display: "grid", placeItems: "center", padding: 20, zIndex: 50 }}>
+          <div onClick={(e) => e.stopPropagation()} className="chrome" style={{ width: "100%", maxWidth: 400, padding: 18, maxHeight: "88vh", overflowY: "auto" }}>
+            <div className="flex items-center justify-between" style={{ borderBottom: "2px solid var(--ink)", paddingBottom: 10, marginBottom: 10 }}>
+              <span style={{ fontFamily: "var(--display)", fontSize: 24, transform: "skewX(-6deg)", display: "inline-block" }}>WILD CARD</span>
+              <button onClick={() => setShowWild(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, color: "var(--muted)" }}>✕</button>
+            </div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)", margin: "0 0 14px", lineHeight: 1.45 }}>
+              Drop any {TRAIL_LABEL} session into today. It gets its own checkboxes and timers, tracked as a bonus that never counts against your streak.
+            </p>
+            {WILD_POOL.map((s) => {
+              const added = todayWild.includes(s.id);
+              return (
+                <div key={s.id} className="flex items-center gap-3 py-2.5" style={{ borderTop: "1px solid var(--rule)" }}>
+                  <div className="flex-1" style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{s.title}</div>
+                    <div style={{ ...mono, color: "var(--muted)", fontSize: 10.5 }}>{s.day} · {s.items.length} moves</div>
+                  </div>
+                  <button onClick={() => (added ? removeWild(s.id) : addWild(s.id))} className="btn3d px-3 py-2" style={{
+                    fontFamily: "var(--sf)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", borderRadius: 8, flexShrink: 0,
+                    color: added ? "var(--muted)" : "#FFFFFF",
+                    background: added ? "#EDECE8" : redGrad,
+                    border: added ? "1.5px solid var(--rule)" : "none",
+                    boxShadow: added ? "none" : "0 2px 0 rgba(120,4,4,0.4)",
+                  }}>{added ? "Added ✓" : "Add"}</button>
+                </div>
+              );
+            })}
+            <button onClick={() => setShowWild(false)} className="btn3d w-full px-4 py-3 mt-4" style={{ ...redBtn, fontSize: 16 }}>DONE</button>
           </div>
         </div>
       )}
