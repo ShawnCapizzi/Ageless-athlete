@@ -309,6 +309,9 @@ export default function AgelessAthlete() {
   const [newLabel, setNewLabel] = useState("");
   const [newSlot, setNewSlot] = useState("workout");
   const [showWild, setShowWild] = useState(false);
+  // Apple Watch placement data (mid-forties, decent shape). One source; native HealthKit swap later changes only this.
+  const WATCH = { restingHr: 61, workoutHr: 138, peakHr: 151, activeKcal: 520 };
+  const [showMove, setShowMove] = useState(false); // in-app move banner (demo of the notification)
 
   const today = new Date();
   const tKey = dateKey(today);
@@ -364,6 +367,12 @@ export default function AgelessAthlete() {
     })();
     loadCrew();
   }, [loadCrew]);
+
+  useEffect(() => {
+    if (!showMove) return;
+    const t = setTimeout(() => setShowMove(false), 5000);
+    return () => clearTimeout(t);
+  }, [showMove]);
 
   const persist = useCallback(async (next) => {
     setState(next);
@@ -643,6 +652,8 @@ export default function AgelessAthlete() {
   const rootVars = {
     "--ink": "#111111", "--muted": "#4A5560", "--red": "#CC0A0A", "--navy": "#0A2A5C",
     "--hl": "#FFE100", "--page": "#F2F2F0", "--card": "#FFFFFF", "--rule": "#C9CBC8",
+    // Category tints (WCAG vs white: green 5.32, amber 5.58, slate 5.81, violet 7.19, all AA). Documented in CLAUDE.md.
+    "--engine": "#1E7A4D", "--work": "#8A6012", "--recover": "#3B6A8A", "--mine": "#5A4B9C",
     "--display": "'Anton', 'Arial Narrow', Impact, sans-serif",
     "--sf": "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif",
     "--mono": "ui-monospace, 'SF Mono', Menlo, monospace",
@@ -770,6 +781,18 @@ export default function AgelessAthlete() {
   }
 
   /* ================= MAIN APP ================= */
+  // Category accent per section (informational color coding). Reserved: red for strength and primary actions.
+  const accentFor = (sid, title) => {
+    const t = (title || "").toLowerCase();
+    if (sid === "morning") return "--work";
+    if (sid === "evening") return "--recover";
+    if (sid === "extras") return "--mine";
+    if (t.includes("green")) return "--engine";
+    if (t.includes("yellow")) return "--work";
+    if (t.includes("recovery")) return "--recover";
+    if (/mobility|cooldown|foot|hip|stretch|balance|technical/.test(t)) return "--recover";
+    return "--red";
+  };
   const keep = (arr) => arr.filter((i) => !hidden.includes(i.id));
   const inSlot = (slot) => custom.filter((c) => c.slot === slot).map((c) => ({ id: c.id, label: c.label }));
   const morningItems = [...keep(MORNING), ...inSlot("morning")];
@@ -785,9 +808,9 @@ export default function AgelessAthlete() {
     ...(extraItems.length ? [{ sid: "extras", title: "My extras", items: extraItems, defaultOpen: true }] : []),
     ...wildSections,
     { sid: "evening", title: "Evening — recovery", items: eveningItems, defaultOpen: false },
-  ];
+  ].map((s) => ({ ...s, accent: accentFor(s.sid, s.title) }));
 
-  const Section = ({ sid, eyebrow, items, defaultOpen }) => {
+  const Section = ({ sid, eyebrow, items, defaultOpen, accent = "--red" }) => {
     const open = openBlocks[sid] ?? defaultOpen;
     const n = items.filter((i) => todayDone[i.id]).length;
     const complete = n === items.length;
@@ -798,19 +821,20 @@ export default function AgelessAthlete() {
     const isPR = complete && total != null && best != null && total <= best;
     let fasterNudge = false;
     if (complete && rec && rec.history.length >= 4 && total != null && total * 1.25 < rec.history[0].ms) fasterNudge = true;
+    const ac = `var(${accent})`;
     return (
       <div style={{ borderTop: "2px solid var(--ink)" }}>
         <button onClick={() => setOpenBlocks((o) => ({ ...o, [sid]: !open }))} className="w-full flex items-center justify-between py-3.5 text-left" style={{ background: "none", border: "none", cursor: "pointer" }}>
-          <span style={kicker}><span style={{ background: complete ? "var(--hl)" : "transparent", padding: complete ? "2px 6px" : 0 }}>{eyebrow.toUpperCase()}</span></span>
+          <span style={{ ...kicker, color: complete ? "var(--ink)" : ac }}><span style={{ background: complete ? "var(--hl)" : "transparent", padding: complete ? "2px 6px" : 0 }}>{eyebrow.toUpperCase()}</span></span>
           <span className="flex items-center gap-2.5">
             {total != null && <span style={{ ...mono, color: isPR ? "var(--red)" : "var(--muted)", fontWeight: isPR ? 700 : 500 }}>{isPR && "★ "}{fmtTime(total)}</span>}
-            <span style={{ ...kicker, color: complete ? "var(--red)" : "var(--muted)" }}>{n}/{items.length} {open ? "▾" : "▸"}</span>
+            <span style={{ ...kicker, color: complete ? ac : "var(--muted)" }}>{n}/{items.length} {open ? "▾" : "▸"}</span>
           </span>
         </button>
         {open && (best != null || fasterNudge) && (
           <div className="pb-1" style={{ marginTop: -4 }}>
             {best != null && !isPR && <span style={{ ...mono, color: "var(--muted)" }}>best {fmtTime(best)}</span>}
-            {fasterNudge && <div style={{ ...mono, color: "var(--navy)", fontWeight: 700, marginTop: 4 }}>↑ way faster than day one — time to add a step</div>}
+            {fasterNudge && <div style={{ ...mono, color: "var(--navy)", fontWeight: 700, marginTop: 4 }}>↑ way faster than day one, time to add a step</div>}
           </div>
         )}
         {open && (
@@ -819,7 +843,7 @@ export default function AgelessAthlete() {
               const on = !!todayDone[it.id]; const sp = byId[it.id];
               return (
                 <button key={it.id} onClick={() => toggle(it.id, sid, eyebrow, items)} className="w-full flex items-center gap-3 text-left" style={{ background: "none", border: "none", cursor: "pointer", minHeight: 46, paddingTop: 6, paddingBottom: 6 }}>
-                  <span aria-hidden style={{ width: 22, height: 22, flexShrink: 0, border: `2px solid ${on ? "var(--red)" : "var(--ink)"}`, background: on ? "var(--red)" : "#FFFFFF", display: "grid", placeItems: "center", transition: "all 140ms ease" }}>
+                  <span aria-hidden style={{ width: 22, height: 22, flexShrink: 0, border: `2px solid ${on ? ac : "var(--ink)"}`, background: on ? ac : "#FFFFFF", display: "grid", placeItems: "center", transition: "all 140ms ease" }}>
                     {on && <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6.5L4.8 9.2 10 3.5" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" /></svg>}
                   </span>
                   <span className="flex-1" style={{ fontFamily: "var(--sf)", fontSize: 17, lineHeight: 1.32, fontWeight: 600, letterSpacing: "-0.01em", color: on ? "var(--muted)" : "var(--ink)", textDecoration: on ? "line-through" : "none" }}>{it.label}</span>
@@ -839,6 +863,27 @@ export default function AgelessAthlete() {
     <div style={rootVars}>
       {styleTag}
       {glow}
+      {showMove && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 60, display: "grid", placeItems: "center", padding: "10px 12px 0", pointerEvents: "none" }}>
+          <div onClick={() => setShowMove(false)} style={{
+            width: "100%", maxWidth: 420, pointerEvents: "auto", cursor: "pointer",
+            background: "rgba(250,250,249,0.86)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
+            border: "1px solid rgba(17,17,17,0.08)", borderRadius: 20, padding: "12px 14px",
+            boxShadow: "0 10px 30px rgba(17,17,17,0.22)", display: "flex", alignItems: "center", gap: 11,
+          }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--red)", display: "grid", placeItems: "center", flexShrink: 0, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)" }}>
+              <span style={{ fontFamily: "var(--display)", color: "#FFFFFF", fontSize: 20, transform: "skewX(-6deg)" }}>A</span>
+            </div>
+            <div className="flex-1" style={{ minWidth: 0 }}>
+              <div className="flex items-center justify-between">
+                <span style={{ fontFamily: "var(--sf)", fontWeight: 700, fontSize: 13.5, color: "var(--ink)" }}>Ageless Athlete</span>
+                <span style={{ ...mono, fontSize: 10.5, color: "var(--muted)" }}>now</span>
+              </div>
+              <div style={{ fontFamily: "var(--sf)", fontSize: 14, fontWeight: 500, color: "var(--ink)", marginTop: 1 }}>Time to move. Lets get at it!</div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="mx-auto px-4 pb-14" style={{ maxWidth: 430, position: "relative", zIndex: 1 }}>
 
         {/* Masthead */}
@@ -923,6 +968,37 @@ export default function AgelessAthlete() {
           </div>
         </div>
 
+        {/* Apple Watch + Move reminder */}
+        <div className="chrome mb-4" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="flex items-center gap-3 px-4 pt-3.5 pb-3">
+            <div style={{ width: 34, height: 42, borderRadius: 10, background: "linear-gradient(180deg,#2A2A2E,#111114)", border: "1px solid #000", display: "grid", placeItems: "center", flexShrink: 0, boxShadow: "0 2px 5px rgba(0,0,0,0.3)" }}>
+              <div style={{ width: 22, height: 26, borderRadius: 5, background: "radial-gradient(120% 90% at 30% 20%, #20242C, #06070A)" }}>
+                <svg width="22" height="26" viewBox="0 0 22 26"><path d="M6 13.5c0-2 1.6-3.4 3.2-3.4 1 0 1.6.5 1.8.9.2-.4.8-.9 1.8-.9 1.6 0 3.2 1.4 3.2 3.4 0 2.4-3.6 4.8-5 5.6-1.4-.8-5-3.2-5-5.6z" fill="var(--red)"/></svg>
+              </div>
+            </div>
+            <div className="flex-1" style={{ minWidth: 0 }}>
+              <div style={{ ...kicker, fontSize: 11 }}>APPLE WATCH</div>
+              <div className="flex items-center gap-1.5" style={{ marginTop: 2 }}>
+                <span style={{ width: 7, height: 7, borderRadius: 4, background: "var(--engine)", display: "inline-block" }} />
+                <span style={{ ...mono, color: "var(--engine)", fontWeight: 700 }}>Connected</span>
+              </div>
+            </div>
+            <button onClick={() => setShowMove(true)} className="btn3d" aria-label="Preview move reminder" style={{ background: "linear-gradient(180deg,#FFFFFF,#F0EFEC)", border: "1.5px solid var(--rule)", borderRadius: 9, cursor: "pointer", padding: "7px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span style={{ fontFamily: "var(--sf)", fontWeight: 700, fontSize: 12 }}>Move</span>
+            </button>
+          </div>
+          <div className="flex" style={{ borderTop: "1px solid var(--rule)" }}>
+            {[{ lbl: "RESTING", val: WATCH.restingHr, unit: "bpm", c: "--recover" }, { lbl: "WORKOUT", val: WATCH.workoutHr, unit: "bpm", c: "--red" }, { lbl: "ACTIVE", val: WATCH.activeKcal, unit: "kcal", c: "--engine" }].map((s, i) => (
+              <div key={s.lbl} className="flex-1 text-center py-2.5" style={{ borderLeft: i > 0 ? "1px solid var(--rule)" : "none" }}>
+                <div style={{ ...kicker, fontSize: 9, color: "var(--muted)" }}>{s.lbl}</div>
+                <div style={{ fontFamily: "var(--display)", fontSize: 26, lineHeight: 1, marginTop: 3, color: `var(${s.c})` }}>{s.val}</div>
+                <div style={{ ...mono, fontSize: 9.5, color: "var(--muted)" }}>{s.unit}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Checklists */}
         <div className="chrome px-4 mb-4">
           <div className="pt-4 pb-1 flex items-center justify-between">
@@ -937,7 +1013,7 @@ export default function AgelessAthlete() {
               {intensity === "hard" ? "▲ " : "▼ "}{intensityCue}
             </div>
           )}
-          {todaySections.map((s) => <Section key={s.sid} sid={s.sid} eyebrow={s.title} items={s.items} defaultOpen={s.defaultOpen} />)}
+          {todaySections.map((s) => <Section key={s.sid} sid={s.sid} eyebrow={s.title} items={s.items} defaultOpen={s.defaultOpen} accent={s.accent} />)}
         </div>
 
         {/* Weight — leather mat */}
@@ -1214,7 +1290,7 @@ export default function AgelessAthlete() {
                   const on = !hidden.includes(it.id);
                   return (
                     <button key={it.id} onClick={() => toggleHidden(it.id)} className="w-full flex items-center gap-2.5 text-left" style={{ background: "none", border: "none", cursor: "pointer", padding: "5px 0" }}>
-                      <span style={{ width: 38, height: 22, borderRadius: 11, flexShrink: 0, background: on ? "var(--red)" : "#CFCFCB", position: "relative", transition: "background 140ms ease" }}>
+                      <span style={{ width: 38, height: 22, borderRadius: 11, flexShrink: 0, background: on ? "var(--engine)" : "#CFCFCB", position: "relative", transition: "background 140ms ease" }}>
                         <span style={{ position: "absolute", top: 2, left: on ? 18 : 2, width: 18, height: 18, borderRadius: 9, background: "#FFFFFF", boxShadow: "0 1px 2px rgba(0,0,0,0.3)", transition: "left 140ms ease" }} />
                       </span>
                       <span style={{ fontSize: 13.5, fontWeight: 600, color: on ? "var(--ink)" : "var(--muted)", textDecoration: on ? "none" : "line-through" }}>{it.label}</span>
