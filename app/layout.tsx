@@ -3,7 +3,16 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Ageless Athlete",
-  description: "A daily strength, mobility and recovery program with a scoreboard.",
+  description:
+    "A daily strength, mobility and recovery program with a scoreboard.",
+
+  applicationName: "Ageless Athlete",
+
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black",
+    title: "Ageless Athlete",
+  },
 };
 
 export const viewport: Viewport = {
@@ -14,7 +23,11 @@ export const viewport: Viewport = {
   themeColor: "#CC0A0A",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body>{children}</body>
